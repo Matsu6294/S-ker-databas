@@ -1,0 +1,3 @@
+# Ignore Cargo build artifacts
+/target
+/AI_databas/target
