@@ -9,9 +9,11 @@ Ett säkert krypterings- och designsystem med två självständiga program byggd
 
 #### Funktioner:
 - ✅ Läser från `personer` (klartext)
-- ✅ Krypterar med AEAD (AES-256-GCM) + Argon2id key derivation
+- ✅ Krypterar med AEAD (AES-256-GCM) + Argon2id key derivation (128MB, 4 iter)
 - ✅ **Lösenordsverifiering** - Hash:en sparas i krypterad data
 - ✅ **Flera kategorier** - Stödjer flera ID:n i samma personer2-fil
+- ✅ **Brute-force-skydd** - Max 5 försök, 15 min lockout, persistent i filen
+- ✅ **Återstående försök** - Visar "4 försök kvar", "3 försök kvar" osv.
 - ✅ Sorterbara kolumner med klickbara headers (▲/▼)
 - ✅ **Dynamiska kolumnnamn** - Kolumn1, Kolumn2, Kolumn3 osv.
 - ✅ Alignerade kolumner i Grid-layout
@@ -133,14 +135,19 @@ row_odd: [25,50,110]      # Udda rader
 
 ### Krypterings-specifikation:
 - **Algoritm:** AES-256-GCM (AEAD - Authenticated Encryption with Associated Data)
-- **KDF:** Argon2id (memory=64MB, iterations=3, parallelism=1)
+- **KDF:** Argon2id (memory=**128MB**, iterations=**4**, parallelism=1) - Förstärkt mot brute-force
 - **Salt:** 16 bytes (slumpmässig per post)
 - **Nonce:** 12 bytes (slumpmässig per post)
 - **Lösenordsverifiering:** Hash sparas i krypterad data
 
 ### Format i personer2:
 ```
-ID|base64(salt)|base64(nonce)|base64(ciphertext)
+ID|base64(salt)|base64(nonce)|base64(ciphertext)|attempts|last_fail|lockout
+```
+
+**Exempel:**
+```
+personal|AbC...==|XyZ...==|encrypted...|0|0|0
 ```
 
 **Innehåll i dekrypterad data:**
@@ -148,17 +155,35 @@ ID|base64(salt)|base64(nonce)|base64(ciphertext)
 PWD:lösenordshash|faktisk_data
 ```
 
+### 🛡️ Brute-Force-Skydd:
+✅ **Persistent i filen** - Räknare sparas i personer2, överlever omstart  
+✅ **Max 5 försök** - Automatisk lockout efter 5 misslyckade försök  
+✅ **15 minuters lockout** - Kontot låses i 900 sekunder  
+✅ **Visar återstående** - "4 försök kvar", "3 försök kvar" osv.  
+✅ **Auto-reset** - Nollställs vid rätt lösenord eller efter lockout
+
+**Meddelanden:**
+```
+❌ Fel lösenord! 4 försök kvar.
+❌ Fel lösenord! 3 försök kvar.
+❌ Fel lösenord! Kontot är nu låst i 15 minuter.
+🔒 Kontot är låst i 14 min 32 sek (för många misslyckade försök)
+```
+
 ### Säkerhetsfunktioner:
 ✅ **Lösenord verifieras** - Tydligt felmeddelande om fel lösenord  
 ✅ **Ingen klartext** - Lösenord sparas aldrig i klartext  
 ✅ **Per-post salt/nonce** - Varje kryptering är unik  
 ✅ **Flera kategorier** - Olika ID:n kan ha olika lösenord  
-✅ **Uppdatering utan överskrivning** - Lägger till nya ID:n utan att radera gamla
+✅ **Uppdatering utan överskrivning** - Lägger till nya ID:n utan att radera gamla  
+✅ **Brute-force-skydd** - Persistent räknare, lockout vid 5 försök
 
 ### Säkerhetsnivåer:
 | Vad | Säkerhet |
 |-----|----------|
-| Krypterad data (personer2) | ⭐⭐⭐⭐⭐ Mycket säkert |
+| Krypterad data (personer2) | ⭐⭐⭐⭐⭐ Mycket säkert (AES-256-GCM) |
+| Brute-force-skydd | ⭐⭐⭐⭐⭐ Utmärkt (persistent, lockout) |
+| Argon2id parametrar | ⭐⭐⭐⭐⭐ Förstärkt (128MB, 4 iter) |
 | Lösenordsverifiering | ⭐⭐⭐⭐ Säkert (hash i krypterad data) |
 | Lösenord i minne | ⭐⭐ Varning (klartext i RAM) |
 
@@ -189,7 +214,31 @@ Lösenord: annat_lösenord_456
 → Klicka "Visa"
 ```
 
-### Scenario 2: Skapa tema med färgväljare
+### Scenario 2: Brute-force-skydd i aktion
+```bash
+# Försök 1 med fel lösenord
+→ "❌ Fel lösenord! 4 försök kvar."
+
+# Försök 2 med fel lösenord
+→ "❌ Fel lösenord! 3 försök kvar."
+
+# Försök 3 med fel lösenord
+→ "❌ Fel lösenord! 2 försök kvar."
+
+# Försök 4 med fel lösenord
+→ "❌ Fel lösenord! 1 försök kvar."
+
+# Försök 5 med fel lösenord
+→ "❌ Fel lösenord! Kontot är nu låst i 15 minuter."
+
+# Försök 6 (under lockout)
+→ "🔒 Kontot är låst i 14 min 32 sek (för många misslyckade försök)"
+
+# Ange rätt lösenord efter lockout
+→ Räknaren nollställs, full åtkomst återställd
+```
+
+### Scenario 3: Skapa tema med färgväljare
 ```bash
 ./aiagent_design
 → Välj "🎨 Färgväljare"
